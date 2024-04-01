@@ -45,8 +45,8 @@ def download_file(url, save_name):
         print('File already present')
 
 download_file(
-    'https://www.dropbox.com/s/xc2890eh8ujy3c/hituav-a-highaltitude-infrared-thermal-dataset.zip?dl=1',
-    'hituav-a-highaltitude-infrared-thermal-dataset.zip'
+    r'C:\Users\성유진\pythonProject\YOLO_NAS_Customdata\FRUIT DETECTION.v1i.darknet.zip',
+    'FRUIT DETECTION.v1i.darknet.zip'
 )
 
 
@@ -59,7 +59,7 @@ def unzip(zip_file=None):
     except Exception as e:
         print(f"Error: {e}")
 
-unzip('hituav-a-highaltitude-infrared-thermal-dataset.zip')
+unzip('FRUIT DETECTION.v1i.darknet.zip')
 
 
 # Dataset Set Up
@@ -77,7 +77,7 @@ dataset_params = {
     'train_images_dir': train_imgs_dir,
     'train_labels_dir': train_labels_dir,
     'val_images_dir': val_imgs_dir,
-    'val_leabels_dir': val_labels_dir,
+    'val_labels_dir': val_labels_dir,
     'test_images_dir': test_imgs_dir,
     'test_labels_dir': test_labels_dir,
     'classes': classes
@@ -154,3 +154,50 @@ def plot_box(image, bboxes, labels):
             lineType=cv2.LINE_AA
         )
     return image
+
+# Function to plot images with the bounding boxes.
+def plot(image_path, label_path, num_samples):
+    all_training_images = glob.glob(image_path+'/*')
+    all_training_labels = glob.glob(label_path+'/*')
+    all_training_images.sort()
+    all_training_labels.sort()
+
+    temp = list(zip(all_training_images, all_training_labels))
+    random.shuffle(temp)
+    all_training_images, all_training_labels = zip(*temp)
+    all_training_images, all_training_labels = list(all_training_images), list(all_training_labels)
+
+    num_images = len(all_training_images)
+
+    if num_samples == -1:
+        num_samples = num_images
+    plt.figure(figsize=(15, 12))
+    for i in range(num_samples):
+        image_name = all_training_images[i].slit(os.path.sep)[-1]
+        image = cv2.imread(all_training_images[i])
+        with open(all_training_labels[i], 'r') as f:
+            bboxes = []
+            labels = []
+            label_lines = f.readlines()
+            for label_line in label_lines:
+                label,x_c, y_c, w, h = label_line.split(' ')
+                x_c = float(x_c)
+                y_c = float(y_c)
+                w = float(w)
+                h = float(h)
+                bboxes.append([x_c, y_c, w, h])
+                labels.append(label)
+        result_image = plot_box(image, bboxes, labels)
+        plt.sublot(2, 2, i+1) # Visualize 2x2 grid of images.
+        plt.imshow(image[:, :, ::-1])
+        plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+# Visualize a few training images.
+plot(
+    image_path=os.path.join(ROOT_DIR, train_imgs_dir),
+    label_path=os.path.join(ROOT_DIR, train_labels_dir),
+    num_samples=4,
+)
+

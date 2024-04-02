@@ -45,8 +45,8 @@ def download_file(url, save_name):
         print('File already present')
 
 download_file(
-    r'C:\Users\성유진\pythonProject\YOLO_NAS_Customdata\FRUIT DETECTION.v1i.darknet.zip',
-    'FRUIT DETECTION.v1i.darknet.zip'
+    r'C:\Users\성유진\pythonProject\YOLO_NAS_Customdata\Custom.v1i.yolov5pytorch.zip',
+    'Custom.v1i.yolov5pytorch.zip'
 )
 
 
@@ -59,7 +59,7 @@ def unzip(zip_file=None):
     except Exception as e:
         print(f"Error: {e}")
 
-unzip('FRUIT DETECTION.v1i.darknet.zip')
+unzip('Custom.v1i.yolov5pytorch.zip')
 
 
 # Dataset Set Up
@@ -201,3 +201,120 @@ plot(
     num_samples=4,
 )
 
+# Train Data
+train_data = coco_detection_yolo_format_train(
+    dataset_params={
+        'data_dir': dataset_params['data_dir'],
+        'images_dir': dataset_params['train_images_dir'],
+        'labels_dir': dataset_params['train_labels_dir'],
+        'classes': dataset_params['classes']
+    },
+    dataloader_params={
+        'batch_size': BATCH_SIZE,
+        'num_workers': WORKERS
+    }
+)
+
+# Val Data
+val_data = coco_detection_yolo_format_val(
+    dataset_params={
+        'data_dir': dataset_params['data_dir'],
+        'images_dir': dataset_params['val_images_dir'],
+        'labels_dir': dataset_params['val_labels_dir'],
+        'classes': dataset_params['classes']
+    },
+    dataloader_params={
+        'batch_size': BATCH_SIZE,
+        'num_workers': WORKERS
+    }
+)
+
+# Transforms and Augmentations
+train_data.dataset.transforms
+
+train_data.dataset.transforms[0]
+
+############## An example on how to modify augmentations ##############
+train_data.dataset.transforms
+
+# We visualize the images with augmentation here.
+train_data.dataset.plot(plot_transformed_data=True)
+
+# Prepare Model and Training Parameters
+train_params = {
+    'silent_mode': False,
+    "average_best_models": True,
+    "warmup_mode": "linear_epoch_step",
+    "warmup_initial_lr": 1e-6,
+    "lr_warmup_epochs": 3,
+    "initial_lr": 5e-4,
+    "lr_mode": "cosine",
+    "cosine_final_lr_ratio": 0.1,
+    "optimizer": "Adam",
+    "optimizer_params": {"weight_decay": 0.0001},
+    "zero_weight_decay_on_bias_and_bn": True,
+    "ema": True,
+    "ema_params": {"decay": 0.9, "decay_type": "threshold"},
+    "max_epochs": EPOCHS,
+    "mixed_precision": True,
+    "loss": PPYoloELoss(
+        use_static_assigner=False,
+        num_classes=len(dataset_params['classes']),
+        reg_max=16
+    ),
+    "valid_metrics_list": [
+        DetectionMetrics_050(
+            score_thres=0.1,
+            top_k_predictions=300,
+            num_cls=len(dataset_params['classes']),
+            normalize_targets=True,
+            post_prediction_callback=PPYoloEPostPredictionCallback(
+                score_threshold=0.01,
+                nms_top_k=1000,
+                max_predictions=300,
+                nms_threshold=0.7
+            )
+        ),
+        DetectionMetrics_050_095(
+            score_thres=0.1,
+            top_k_predictions=300,
+            num_cls=len(dataset_params['classes']),
+            normalize_targets=True,
+            post_prediction_callback=PPYoloEPostPredictionCallback(
+                score_threshold=0.01,
+                nms_top_k=1000,
+                max_predictions=300,
+                nms_threshold=0.7
+            )
+        )
+    ],
+    "metric_to_watch":  'mAP@0.50:0.95'
+}
+
+models_to_train = [
+    'yolo_nas_s',
+    'yolo_nas_m',
+    'yolo_nas_l'
+]
+
+CHECKPOINT_DIR = 'checkpoints'
+
+# Model Training
+for models_to_train in models_to_train:
+    trainer = Trainer(
+        experiment_name=models_to_train,
+        ckpt_root_dir=CHECKPOINT_DIR
+    )
+
+    model = models.get(
+        models_to_train,
+        num_classes=len(dataset_params['classes']),
+        pretrained_weights="coco"
+    )
+
+    trainer.train(
+        model=model,
+        training_params=train_params,
+        train_loader=train_data,
+        valid_loader=val_data
+    )

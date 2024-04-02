@@ -1,5 +1,5 @@
-# FRUIT DETECTION > 2023-03-12 2:42pm
-https://universe.roboflow.com/fruit-detection-w707e/fruit-detection-deqvb
+# Custom > 2024-04-02 11:21am
+https://universe.roboflow.com/custom-detection-vdywz/custom-v3kvp
 
 Provided by a Roboflow user
 License: CC BY 4.0
